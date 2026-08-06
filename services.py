@@ -57,6 +57,12 @@ DEFAULT_PRICES = {
 
 DEFAULT_FX = 1380.0  # KRW/USD — 실시간 환율 조회 실패 시 폴백(기본값은 app.py에서 실시간 조회)
 
+# ---- AWS Bedrock Nova 2 서비스 티어 (batchPro 실코드: nova-2 → serviceTier="flex") ----
+# Standard(기본 On-Demand) 대비 Flex는 약 50% 할인(best-effort·지연 허용, 프롬프트 캐시와 중복 적용).
+# 출처: AWS Bedrock Service Tiers — https://aws.amazon.com/bedrock/service-tiers/
+NOVA_TIERS = {"standard": 1.0, "flex": 0.5}
+NOVA_TIER_LABEL = {"standard": "Standard (기본 · On-Demand)", "flex": "Flex (약 50% 할인 · best-effort)"}
+
 # 모델 → 공급사 (단계별 내역 표시용)
 MODEL_PROVIDER = {
     "gpt-4o": "OpenAI", "gpt-4o-mini": "OpenAI",
@@ -198,7 +204,7 @@ DEFAULT_OPTIONS = {
     "review": {"model": "gpt-4o-mini", "val_retries": 0.0},
     "search": {"cache_hit_pct": 0.0, "exa_enabled": True, "exa_calls": 2, "exa_results": 5},
     "vod": {"avg_images": 14, "video_sec": 10.0, "luma_prob": 0.0, "video_model": "lite", "video_res": "720p"},
-    "batchpro": {"images": 6, "cache_read_mult": 0.10},
+    "batchpro": {"images": 6, "cache_read_mult": 0.10, "nova_tier": "flex"},  # 실코드는 nova-2 → flex
 }
 
 
@@ -250,15 +256,17 @@ def concrete_steps(svc_key, opts):
     return out
 
 
-def step_usd(step, prices, tok=None, cache_read_mult=1.0):
+def step_usd(step, prices, tok=None, cache_read_mult=1.0, price_mult=1.0):
     """단일 단계 비용(USD). tok={"in","out","sys"} 로 토큰 오버라이드 가능.
-    sys_tok(캐시 대상 시스템 프롬프트)은 cache_read_mult × input 단가로 과금(캐시 미사용=1.0)."""
+    sys_tok(캐시 대상 시스템 프롬프트)은 cache_read_mult × input 단가로 과금(캐시 미사용=1.0).
+    price_mult는 Bedrock Nova 서비스 티어(Standard/Flex) 할인 — amazon-nova 모델에만 적용."""
     p = prices[step["model"]]
     if step["billing"] == TOKEN:
         it = tok["in"] if tok else step["in_tok"]
         ot = tok["out"] if tok else step["out_tok"]
         sys_ = (tok.get("sys") if tok else None) or step.get("sys_tok", 0)
-        return ((it + sys_ * cache_read_mult) * p["in"] + ot * p["out"]) / 1_000_000 * step["count"]
+        mult = price_mult if step["model"].startswith("amazon-nova") else 1.0  # Flex 티어는 Nova 한정
+        return ((it + sys_ * cache_read_mult) * p["in"] + ot * p["out"]) / 1_000_000 * step["count"] * mult
     if step["billing"] == IMAGE:
         return step["count"] * step["per_call"] * p["per_image"]
     if step["billing"] == REQUEST:
@@ -275,10 +283,11 @@ def cost_unit(svc_key, opts, prices, tok_overrides=None, fx=DEFAULT_FX):
     """기준 산출물 1건당 비용. → (usd, krw, breakdown[list])."""
     tok_overrides = tok_overrides or {}
     cache_read_mult = opts.get("cache_read_mult", 1.0)   # 1.0=캐시 미사용, <1.0(예:0.10)=캐시 읽기 단가
+    price_mult = NOVA_TIERS.get(opts.get("nova_tier", "standard"), 1.0)  # Bedrock Nova 서비스 티어
     total = 0.0
     bd = []
     for st in concrete_steps(svc_key, opts):
-        u = step_usd(st, prices, tok_overrides.get(st["id"]), cache_read_mult)
+        u = step_usd(st, prices, tok_overrides.get(st["id"]), cache_read_mult, price_mult)
         total += u
         bd.append({"단계": st["name"], "공급사": provider_of(st["model"]), "모델": st["model"],
                    "과금": {"token": "토큰", "image": "이미지", "video": "비디오",

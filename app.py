@@ -270,9 +270,14 @@ for tab, k in zip(tabs, SERV_ORDER):
                 _cached = st.checkbox("프롬프트 캐시 적용 (시스템 프롬프트, 읽기 90% 할인)",
                                       value=S.DEFAULT_OPTIONS[k]["cache_read_mult"] < 1.0, key=f"pc_{k}")
                 o["cache_read_mult"] = 0.10 if _cached else 1.0
+                o["nova_tier"] = st.selectbox(
+                    "Nova 서비스 티어", list(S.NOVA_TIERS),
+                    index=list(S.NOVA_TIERS).index(S.DEFAULT_OPTIONS[k]["nova_tier"]),
+                    format_func=lambda t: S.NOVA_TIER_LABEL[t], key=f"nt_{k}")
         with c2:
             metrics_ph = st.empty()  # 상단 메트릭 자리 선점 → 단계표 렌더 후 채움(항상 최신 합계)
             crm = o.get("cache_read_mult", 1.0)
+            pmt = S.NOVA_TIERS.get(o.get("nova_tier", "standard"), 1.0)  # Bedrock Nova 서비스 티어
             steps = S.concrete_steps(k, o)
             hdr = st.columns([2.0, 3.2, 1.3, 1.2, 1.3])
             for col, label in zip(hdr, ["단계", "모델 (변경 가능)", "공급사", "USD", "KRW"]):
@@ -290,7 +295,7 @@ for tab, k in zip(tabs, SERV_ORDER):
                     stp["id"], choices, index=choices.index(cur),
                     key=f"mo_{k}_{stp['id']}", label_visibility="collapsed")
                 stp = dict(stp); stp["model"] = chosen       # 모델 치환 후 단계 비용 산출
-                u = S.step_usd(stp, prices, tok_overrides.get(stp["id"]), crm)
+                u = S.step_usd(stp, prices, tok_overrides.get(stp["id"]), crm, pmt)
                 total += u
                 rc[2].write(S.provider_of(chosen))
                 rc[3].write(f"${u:.6f}")
