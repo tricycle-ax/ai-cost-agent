@@ -108,6 +108,16 @@ MODEL_KIND = {
 KIND_LABEL = {"token": "토큰/1M", "image": "이미지/장", "per_second": "비디오/초",
               "per_video": "비디오/개", "request": "검색/건", "page": "본문/페이지"}
 
+# 단계(과금 방식)별 선택 가능 모델 — 같은 과금 종류끼리만 호환(step_usd가 해당 과금 키를 그대로 읽음).
+# 토큰 단계→LLM 토큰 모델, 이미지 단계→이미지 모델, 비디오 단계→초당/개당 모델.
+_BILLING_KINDS = {S.TOKEN: {"token"}, S.IMAGE: {"image"}, S.VIDEO: {"per_second", "per_video"},
+                  S.REQUEST: {"request"}, S.PAGE: {"page"}}
+
+
+def _models_for(billing):
+    kinds = _BILLING_KINDS[billing]
+    return [m for m, kd in MODEL_KIND.items() if kd in kinds]
+
 
 def token_steps():
     """편집 가능한 토큰 단계 목록."""
@@ -212,11 +222,6 @@ edited_tok = st.sidebar.data_editor(
 tok_overrides = {r["sid"]: {"in": r["in_tok"], "out": r["out_tok"], "sys": r["sys_tok"]} for _, r in edited_tok.iterrows()}
 
 
-def unit(svc_key, opts):
-    usd, krw, _ = S.cost_unit(svc_key, opts, prices, tok_overrides, fx=fx)
-    return usd, krw
-
-
 # ================= 영역 B — 서비스별 시나리오 =================
 st.title("💸 AI 서비스 비용 산출 대시보드")
 st.caption("4개 서비스의 기준 산출물 1건당 비용을 환율·수량·단가 변동에 따라 시뮬레이션.")
@@ -266,14 +271,38 @@ for tab, k in zip(tabs, SERV_ORDER):
                                       value=S.DEFAULT_OPTIONS[k]["cache_read_mult"] < 1.0, key=f"pc_{k}")
                 o["cache_read_mult"] = 0.10 if _cached else 1.0
         with c2:
-            usd1, krw1 = unit(k, o)
+            metrics_ph = st.empty()  # 상단 메트릭 자리 선점 → 단계표 렌더 후 채움(항상 최신 합계)
+            crm = o.get("cache_read_mult", 1.0)
+            steps = S.concrete_steps(k, o)
+            hdr = st.columns([2.0, 3.2, 1.3, 1.2, 1.3])
+            for col, label in zip(hdr, ["단계", "모델 (변경 가능)", "공급사", "USD", "KRW"]):
+                col.markdown(f"**{label}**")
+            total = 0.0
+            for stp in steps:
+                choices = _models_for(stp["billing"])
+                orig = stp["model"]
+                cur = st.session_state.get(f"mo_{k}_{stp['id']}", orig)
+                if cur not in choices:                       # 호환 모델로만 한정
+                    cur = orig if orig in choices else choices[0]
+                rc = st.columns([2.0, 3.2, 1.3, 1.2, 1.3])
+                rc[0].write(stp["name"])
+                chosen = rc[1].selectbox(
+                    stp["id"], choices, index=choices.index(cur),
+                    key=f"mo_{k}_{stp['id']}", label_visibility="collapsed")
+                stp = dict(stp); stp["model"] = chosen       # 모델 치환 후 단계 비용 산출
+                u = S.step_usd(stp, prices, tok_overrides.get(stp["id"]), crm)
+                total += u
+                rc[2].write(S.provider_of(chosen))
+                rc[3].write(f"${u:.6f}")
+                rc[4].write(f"₩{u*fx:,.2f}")
+            usd1, krw1 = total, total * fx
             opts[k], qty[k], unit_usd[k], unit_krw[k] = o, q, usd1, krw1
-            m1, m2, m3 = st.columns(3)
-            m1.metric("1건당 (USD)", f"${usd1:.6f}")
-            m2.metric("1건당 (KRW)", f"₩{krw1:,.2f}")
-            m3.metric(f"총비용 ({q:,}건)", f"₩{krw1*q:,.0f}")
-            _, _, bd = S.cost_unit(k, o, prices, tok_overrides, fx=fx)
-            st.dataframe(pd.DataFrame(bd), width="stretch", hide_index=True)
+            with metrics_ph:
+                m1, m2, m3 = st.columns(3)
+                m1.metric("1건당 (USD)", f"${usd1:.6f}")
+                m2.metric("1건당 (KRW)", f"₩{krw1:,.2f}")
+                m3.metric(f"총비용 ({q:,}건)", f"₩{krw1*q:,.0f}")
+            st.caption("💡 모델은 같은 과금 방식 내에서만 교체 가능(토큰 단계→LLM, 이미지 단계→이미지, 비디오 단계→Veo/Luma).")
 
 
 # ================= 영역 C — 통합 비교 + 차트 + 환율 민감도 =================
