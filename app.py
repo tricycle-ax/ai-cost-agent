@@ -221,6 +221,13 @@ edited_tok = st.sidebar.data_editor(
 )
 tok_overrides = {r["sid"]: {"in": r["in_tok"], "out": r["out_tok"], "sys": r["sys_tok"]} for _, r in edited_tok.iterrows()}
 
+st.sidebar.subheader("AWS Nova 서비스 티어")
+nova_tier = st.sidebar.selectbox(
+    "Nova 티어", list(S.NOVA_TIERS), index=list(S.NOVA_TIERS).index("flex"),
+    format_func=lambda t: S.NOVA_TIER_LABEL[t], key="nova_tier_global",
+    help="AWS Bedrock service tier — 모든 서비스의 amazon-nova 단계에 일괄 적용. Flex ≈ 50% 할인(실코드 nova-2→flex).")
+st.sidebar.caption("💡 모델을 Nova로 교체한 모든 단계에 이 티어가 적용됩니다.")
+
 
 # ================= 영역 B — 서비스별 시나리오 =================
 st.title("💸 AI 서비스 비용 산출 대시보드")
@@ -270,14 +277,10 @@ for tab, k in zip(tabs, SERV_ORDER):
                 _cached = st.checkbox("프롬프트 캐시 적용 (시스템 프롬프트, 읽기 90% 할인)",
                                       value=S.DEFAULT_OPTIONS[k]["cache_read_mult"] < 1.0, key=f"pc_{k}")
                 o["cache_read_mult"] = 0.10 if _cached else 1.0
-                o["nova_tier"] = st.selectbox(
-                    "Nova 서비스 티어", list(S.NOVA_TIERS),
-                    index=list(S.NOVA_TIERS).index(S.DEFAULT_OPTIONS[k]["nova_tier"]),
-                    format_func=lambda t: S.NOVA_TIER_LABEL[t], key=f"nt_{k}")
         with c2:
             metrics_ph = st.empty()  # 상단 메트릭 자리 선점 → 단계표 렌더 후 채움(항상 최신 합계)
             crm = o.get("cache_read_mult", 1.0)
-            pmt = S.NOVA_TIERS.get(o.get("nova_tier", "standard"), 1.0)  # Bedrock Nova 서비스 티어
+            pmt = S.NOVA_TIERS[nova_tier]  # 글로벌 Nova 티어(사이드바) — 모든 amazon-nova 단계에 적용
             steps = S.concrete_steps(k, o)
             hdr = st.columns([2.0, 3.2, 1.3, 1.2, 1.3])
             for col, label in zip(hdr, ["단계", "모델 (변경 가능)", "공급사", "USD", "KRW"]):
