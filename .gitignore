@@ -16,6 +16,9 @@ eggs/
 .eggs/
 lib/
 lib64/
+# web/ is the Next.js app (not Python) — its lib/ dir is real source, not a venv artifact
+!/web/lib/
+!/web/lib/**
 parts/
 sdist/
 var/
