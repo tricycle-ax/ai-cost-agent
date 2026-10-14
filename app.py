@@ -147,8 +147,13 @@ st.sidebar.caption(f"기본값 = {'실시간' if _fx_ok else '폴백'} ₩{int(r
 st.sidebar.subheader("단가 테이블 (USD)")
 st.sidebar.caption("⚠️ 기본값은 조사일 참고치. 아래 버튼으로 최신화(luma/exa는 수동).")
 
-if "price_base" not in st.session_state:
-    st.session_state.price_base = {k: dict(v) for k, v in S.DEFAULT_PRICES.items()}
+# 배포 전에 열린 세션은 옛 단가표를 들고 있으므로, 새로 추가된 모델은 기본값으로 채운다
+_pb = st.session_state.setdefault("price_base", {})
+_new = [k for k in S.DEFAULT_PRICES if k not in _pb]
+for k in _new:
+    _pb[k] = dict(S.DEFAULT_PRICES[k])
+if _new:
+    st.session_state.pop("price_tbl", None)   # 행이 늘면 편집기의 행 인덱스가 어긋나므로 재초기화
 
 if st.sidebar.button("🔄 단가 자동 업데이트 (LiteLLM)", width="stretch"):
     with st.spinner("LiteLLM 공개 단가 조회 중..."):
