@@ -37,7 +37,7 @@ export function ComparisonTable({ costs, qty }: Props) {
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-muted-foreground">ℹ️ aqua/yellow 계열은 라이트 배경에서 대비가 낮아 정확한 값은 이 표를 기준으로 확인.</p>
+      <p className="text-xs text-muted-foreground">ℹ️ 정확한 값은 이 표 기준. 아래 차트는 건수별 추세 비교용.</p>
     </div>
   );
 }

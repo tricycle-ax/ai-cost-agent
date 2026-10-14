@@ -4,6 +4,7 @@
 차트 색상은 dataviz 스킬 검증 팔레트(라이트/다크) 사용. 비교표=대비필요 충족, 라인 종단 라벨=CVD floor 충족."""
 
 import json
+import math
 import urllib.request
 
 import streamlit as st
@@ -332,9 +333,9 @@ cmp_df = pd.DataFrame({
 st.dataframe(cmp_df.style.format({"1건당 USD": "${:.6f}", "1건당 KRW": "₩{:,.2f}",
                                   "총비용 KRW": "₩{:,.0f}"}),
              width="stretch", hide_index=True)
-st.caption("ℹ️ aqua/yellow 계열은 라이트 배경에서 대비가 낮아 정확한 값은 이 표를 기준으로 확인.")
+st.caption("ℹ️ 정확한 값은 이 표 기준. 아래 차트는 건수별 추세 비교용.")
 
-# ---- 건수별 비용 라인 차트 (4 series, 단일 축) ----
+# ---- 건수별 비용 라인 차트 (단일 축) ----
 cc1, cc2 = st.columns([3, 1])
 with cc2:
     sweep_max = st.slider("스윕 최대 건수", 10, 10000, 1000, 50, key="sweep")
@@ -349,16 +350,24 @@ for k in SERV_ORDER:
                              line=dict(color=SERIES_COLOR[k], width=2),
                              hovertemplate=f"{short[k]}<br>%{{x:,}}건 → ₩%{{y:,.0f}}<extra></extra>"))
 # 종단 직접 라벨 (다크 CVD floor / 라이트 대비 relief)
-y_last = {k: unit_krw[k] * xs[-1] for k in SERV_ORDER}
-for k in SERV_ORDER:
-    fig.add_annotation(x=xs[-1], y=y_last[k], text=short[k], showarrow=False,
-                       xanchor="left", xshift=6, font=dict(color=SERIES_COLOR[k], size=11))
+# plotly 로그축 annotation 은 y 를 log10 값으로 받는다
+to_axis = (lambda v: math.log10(v)) if log_y else (lambda v: v)
+y_last = {k: to_axis(unit_krw[k] * xs[-1]) for k in SERV_ORDER if not log_y or unit_krw[k] > 0}
+if y_last:
+    y_min = min([to_axis(unit_krw[k] * xs[0]) for k in y_last] + [0 if not log_y else min(y_last.values())])
+    gap = (max(y_last.values()) - y_min) * 0.05  # 라벨 최소 간격: 축 범위의 5%
+    pos = None
+    for k in sorted(y_last, key=y_last.get):  # 아래부터 쌓으며 겹치면 위로 민다
+        pos = y_last[k] if pos is None else max(y_last[k], pos + gap)
+        fig.add_annotation(x=xs[-1], y=pos, text=short[k], showarrow=False,
+                           xanchor="left", xshift=6, font=dict(color=SERIES_COLOR[k], size=11))
 fig.update_layout(
-    margin=dict(l=10, r=70, t=20, b=10), hovermode="x",
+    margin=dict(l=10, r=70, t=10, b=10), hovermode="x",
     paper_bgcolor=ink["surface"], plot_bgcolor=ink["surface"],
     font=dict(color=ink["primary"], family="system-ui, -apple-system, 'Segoe UI', sans-serif"),
-    legend=dict(orientation="h", y=1.08, font=dict(color=ink["secondary"])),
-    height=360,
+    # 범례는 플롯 아래(6개 서비스면 2줄로 접혀 선을 가림)
+    legend=dict(orientation="h", x=0, y=-0.22, yanchor="top", font=dict(color=ink["secondary"])),
+    height=420,
 )
 fig.update_xaxes(gridcolor=ink["grid"], zeroline=False, tickfont=dict(color=ink["muted"]),
                  title_text="기준 수량 (건)")
