@@ -12,7 +12,7 @@ import { SERV_ORDER } from "@/lib/theme-palette";
 import { Separator } from "@/components/ui/separator";
 
 const INITIAL_OPTS: Record<ServiceKey, Record<string, unknown>> = { ...DEFAULT_OPTIONS };
-const INITIAL_QTY: Record<ServiceKey, number> = { coordi: 100, review: 100, search: 100, vod: 100, batchpro: 100 };
+const INITIAL_QTY: Record<ServiceKey, number> = { coordi: 100, review: 100, search: 100, vod: 100, batchpro: 100, size: 100 };
 const TOKEN_ROWS = tokenSteps();
 const INITIAL_TOKEN_OVERRIDES: Record<string, TokenOverride> = Object.fromEntries(
   TOKEN_ROWS.map((r) => [r.sid, { in: r.in_tok, out: r.out_tok, sys: r.sys_tok }]),
@@ -97,7 +97,7 @@ export default function Home() {
       <main className="flex-1 space-y-8 p-4 lg:p-6">
         <div>
           <h1 className="text-2xl font-semibold">💸 AI 서비스 비용 산출 대시보드</h1>
-          <p className="text-sm text-muted-foreground">5개 서비스의 기준 산출물 1건당 비용을 환율·수량·단가 변동에 따라 시뮬레이션.</p>
+          <p className="text-sm text-muted-foreground">6개 서비스의 기준 산출물 1건당 비용을 환율·수량·단가 변동에 따라 시뮬레이션.</p>
         </div>
 
         <ServiceTabs

@@ -1,18 +1,19 @@
 // 라이트/다크 검증 팔레트 — app.py PALETTE / INK 1:1 포트.
 import type { ServiceKey } from "./services";
 
-export const SERV_ORDER: ServiceKey[] = ["coordi", "review", "search", "vod", "batchpro"];
+export const SERV_ORDER: ServiceKey[] = ["coordi", "review", "search", "vod", "batchpro", "size"];
 export const SHORT_NAME: Record<ServiceKey, string> = {
   coordi: "코디",
   review: "상품평",
   search: "검색추천",
   vod: "VOD영상",
   batchpro: "속성추출",
+  size: "사이즈표",
 };
 
 const PALETTE = {
-  light: ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#eb6834"],
-  dark: ["#3987e5", "#199e70", "#c98500", "#008300", "#d95926"],
+  light: ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#eb6834", "#7a5af5"],
+  dark: ["#3987e5", "#199e70", "#c98500", "#008300", "#d95926", "#8f74f7"],
 };
 
 export const INK = {

@@ -1,5 +1,5 @@
 /**
- * 5개 AI 서비스의 호출 구조(데이터) + 비용 산출 함수.
+ * 6개 AI 서비스의 호출 구조(데이터) + 비용 산출 함수.
  * services.py 1:1 포트 — 로직 변경 없음. 데이터(SERVICES)만 고치면 단계/횟수/토큰/모델이 변경된다.
  * 출처: WORK_INSTRUCTION.md 3절(코드 기반 고정값). 단가·입력토큰은 추정 기본값이므로 UI에서 반드시 수정.
  *
@@ -64,6 +64,7 @@ export const DEFAULT_PRICES: Record<string, PriceEntry> = {
   // USD / 1M tokens
   "gpt-4o": { in: 2.5, out: 10.0 },
   "gpt-4o-mini": { in: 0.15, out: 0.6 },
+  "gpt-4.1-mini": { in: 0.4, out: 1.6 },
   "gemini-2.5-flash": { in: 0.3, out: 2.5 },
   // AWS Bedrock Nova 2 Lite (토큰/1M). 공식값 미확정 → Bifrost 추정치($0.30/$2.50).
   // 코드는 service_tier="flex" 사용 → 실제 청구는 더 낮을 수 있음(단가표에서 조정).
@@ -95,6 +96,7 @@ export const NOVA_TIER_LABEL: Record<string, string> = {
 export const MODEL_PROVIDER: Record<string, string> = {
   "gpt-4o": "OpenAI",
   "gpt-4o-mini": "OpenAI",
+  "gpt-4.1-mini": "OpenAI",
   "gemini-2.5-flash": "Google",
   "gemini-3.1-flash-image": "Google",
   "amazon-nova-2-lite": "AWS",
@@ -243,6 +245,18 @@ export const SERVICES: Record<string, ServiceDef> = {
       tok("bp_cat_s", "3차 소분류 추론", "amazon-nova-2-lite", 384, 170, 1, 1072),
     ],
   },
+  size: {
+    name: "상품 사이즈표 추출",
+    unit: "상품 1건",
+    provider: "OpenAI",
+    // 출처: product_attr_extract util/size_table.py. 상세 HTML 표 텍스트 → (실측표 없으면) 상세 이미지 조각(768px, 평균 22장).
+    // 토큰 = 평가 실측 평균(2026-10, 23건). HTML 경로 7건 평균, 이미지 경로 14건 평균(최소 1.1만~최대 5만).
+    // count = 경로 비율(html_pct). 표본 144건 조사에서 HTML 실측표 보유 약 11%.
+    steps: [
+      tok("size_html", "HTML 표 텍스트 추출", "gpt-4.1-mini", 2036, 593),
+      tok("size_img", "상세 이미지 사이즈표 추출", "gpt-4.1-mini", 22573, 932),
+    ],
+  },
 };
 
 export interface CoordiOptions {
@@ -278,7 +292,11 @@ export interface BatchproOptions {
   cache_read_mult: number;
   nova_tier: string;
 }
-export type ServiceOptions = CoordiOptions | ReviewOptions | SearchOptions | VodOptions | BatchproOptions;
+export interface SizeOptions {
+  [key: string]: unknown;
+  html_pct: number;
+}
+export type ServiceOptions = CoordiOptions | ReviewOptions | SearchOptions | VodOptions | BatchproOptions | SizeOptions;
 
 // ---- 서비스별 기본 옵션(UI 초기값) ----
 export const DEFAULT_OPTIONS: {
@@ -287,12 +305,14 @@ export const DEFAULT_OPTIONS: {
   search: SearchOptions;
   vod: VodOptions;
   batchpro: BatchproOptions;
+  size: SizeOptions;
 } = {
   coordi: { mode: "mode1", try_on_n: 3, parsed_items_n: 5, retry_pct: 0.0 },
   review: { model: "gpt-4o-mini", val_retries: 0.0 },
   search: { cache_hit_pct: 0.0, exa_enabled: true, exa_calls: 2, exa_results: 5 },
   vod: { avg_images: 14, video_sec: 10.0, luma_prob: 0.0, video_model: "lite", video_res: "720p" },
   batchpro: { images: 6, cache_read_mult: 0.1, nova_tier: "flex" }, // 실코드는 nova-2 → flex
+  size: { html_pct: 11.0 },
 };
 
 export type ServiceKey = keyof typeof DEFAULT_OPTIONS;
@@ -349,6 +369,10 @@ export function concreteSteps(svcKey: ServiceKey, opts: Record<string, unknown>)
       if (st.id === "bp_img") st.count = o.images; // 이미지 장수만큼 입력 토큰 과금
       out.push(st);
     }
+  } else if (svcKey === "size") {
+    const o = opts as unknown as SizeOptions;
+    out.push({ ...s.steps![0], count: o.html_pct / 100 }); // HTML 실측표 보유 비율
+    out.push({ ...s.steps![1], count: 1 - o.html_pct / 100 }); // 나머지는 이미지 경로
   }
   return out;
 }
@@ -451,7 +475,7 @@ export function tokenSteps(): TokenStepRow[] {
   const rows: TokenStepRow[] = [];
   const seen = new Set<string>();
   const coordiAll = Object.values(SERVICES.coordi.recipes!).flat();
-  const all = [...coordiAll, ...SERVICES.review.steps!, ...SERVICES.search.steps!, ...SERVICES.vod.steps!, ...SERVICES.batchpro.steps!];
+  const all = [...coordiAll, ...SERVICES.review.steps!, ...SERVICES.search.steps!, ...SERVICES.vod.steps!, ...SERVICES.batchpro.steps!, ...SERVICES.size.steps!];
   for (const st of all) {
     if (st.billing === TOKEN && !seen.has(st.id)) {
       seen.add(st.id);

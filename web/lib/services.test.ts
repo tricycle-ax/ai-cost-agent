@@ -9,6 +9,7 @@ const EXPECTED_STEP_COUNT: Record<ServiceKey, number> = {
   search: 4, // 2 steps + exa search + exa contents (exa_enabled=true by default)
   vod: 2, // luma_prob=0 → no fallback step
   batchpro: 4,
+  size: 2,
 };
 
 for (const k of Object.keys(SERVICES) as ServiceKey[]) {
@@ -19,6 +20,12 @@ for (const k of Object.keys(SERVICES) as ServiceKey[]) {
     assert.equal(breakdown.length, EXPECTED_STEP_COUNT[k], `${k}: unexpected step count`);
   });
 }
+
+test("size html path is cheaper than image path", () => {
+  const html = costUnit("size", { html_pct: 100 }, DEFAULT_PRICES, {}, DEFAULT_FX);
+  const image = costUnit("size", { html_pct: 0 }, DEFAULT_PRICES, {}, DEFAULT_FX);
+  assert.ok(html.usd > 0 && html.usd < image.usd);
+});
 
 test("batchpro flex tier is cheaper than standard", () => {
   const flex = costUnit("batchpro", DEFAULT_OPTIONS.batchpro, DEFAULT_PRICES, {}, DEFAULT_FX);

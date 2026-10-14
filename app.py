@@ -30,6 +30,7 @@ LITELLM_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_pric
 # 우리 모델 → LiteLLM JSON 키. 미매핑(luma, exa)은 수동 유지.
 LITELLM_KEY = {
     "gpt-4o": "gpt-4o", "gpt-4o-mini": "gpt-4o-mini", "gemini-2.5-flash": "gemini-2.5-flash",
+    "gpt-4.1-mini": "gpt-4.1-mini",
     "amazon-nova-2-lite": "amazon.nova-2-lite-v1:0",
     "gemini-3.1-flash-image": "gemini-3.1-flash-image",
     "veo-lite-720p": "gemini/veo-3.1-lite-generate-preview",
@@ -82,10 +83,10 @@ except Exception:
     _base = None
 DARK = _base == "dark"
 
-SERV_ORDER = ["coordi", "review", "search", "vod", "batchpro"]
+SERV_ORDER = ["coordi", "review", "search", "vod", "batchpro", "size"]
 PALETTE = {
-    "light": ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#eb6834"],
-    "dark":  ["#3987e5", "#199e70", "#c98500", "#008300", "#d95926"],
+    "light": ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#eb6834", "#7a5af5"],
+    "dark":  ["#3987e5", "#199e70", "#c98500", "#008300", "#d95926", "#8f74f7"],
 }
 INK = {
     "light": dict(primary="#0b0b0b", secondary="#52514e", muted="#898781",
@@ -99,7 +100,7 @@ ink = INK["dark" if DARK else "light"]
 # ---- 모델별 과금 종류 + 토큰 단계(데이터에서 추출, UI 편집용) ----
 MODEL_KIND = {
     "gpt-4o": "token", "gpt-4o-mini": "token", "gemini-2.5-flash": "token",
-    "amazon-nova-2-lite": "token",
+    "gpt-4.1-mini": "token", "amazon-nova-2-lite": "token",
     "gemini-3.1-flash-image": "image",
     **{k: "per_second" for k in S.VIDEO_PRICES},  # veo {lite/pro}-{720p/1080p} 매트릭스
     "luma-dream-machine": "per_video",
@@ -125,7 +126,7 @@ def token_steps():
     coordi_all = [st for rec in S.SERVICES["coordi"]["recipes"].values() for st in rec]
     for st_ in coordi_all + S.SERVICES["review"]["steps"] \
             + S.SERVICES["search"]["steps"] + S.SERVICES["vod"]["steps"] \
-            + S.SERVICES["batchpro"]["steps"]:
+            + S.SERVICES["batchpro"]["steps"] + S.SERVICES["size"]["steps"]:
         if st_["billing"] == S.TOKEN and st_["id"] not in seen:
             seen.add(st_["id"])
             owner = next(s for s, v in S.SERVICES.items()
@@ -231,7 +232,7 @@ st.sidebar.caption("💡 모델을 Nova로 교체한 모든 단계에 이 티어
 
 # ================= 영역 B — 서비스별 시나리오 =================
 st.title("💸 AI 서비스 비용 산출 대시보드")
-st.caption("4개 서비스의 기준 산출물 1건당 비용을 환율·수량·단가 변동에 따라 시뮬레이션.")
+st.caption("6개 서비스의 기준 산출물 1건당 비용을 환율·수량·단가 변동에 따라 시뮬레이션.")
 
 opts = {}
 qty = {}
@@ -277,6 +278,9 @@ for tab, k in zip(tabs, SERV_ORDER):
                 _cached = st.checkbox("프롬프트 캐시 적용 (시스템 프롬프트, 읽기 90% 할인)",
                                       value=S.DEFAULT_OPTIONS[k]["cache_read_mult"] < 1.0, key=f"pc_{k}")
                 o["cache_read_mult"] = 0.10 if _cached else 1.0
+            elif k == "size":
+                o["html_pct"] = st.slider("HTML 실측표 보유 비율 (%)", 0.0, 100.0, S.DEFAULT_OPTIONS[k]["html_pct"], 1.0,
+                                          key=f"hp_{k}", help="HTML 표로 추출되는 상품 비율. 나머지는 상세 이미지 경로(입력 약 10배)")
         with c2:
             metrics_ph = st.empty()  # 상단 메트릭 자리 선점 → 단계표 렌더 후 채움(항상 최신 합계)
             crm = o.get("cache_read_mult", 1.0)
@@ -338,7 +342,7 @@ with cc2:
 
 xs = sorted(set(max(1, round(sweep_max * i / 59)) for i in range(60)))
 fig = go.Figure()
-short = {"coordi": "코디", "review": "상품평", "search": "검색추천", "vod": "VOD영상", "batchpro": "속성추출"}
+short = {"coordi": "코디", "review": "상품평", "search": "검색추천", "vod": "VOD영상", "batchpro": "속성추출", "size": "사이즈표"}
 for k in SERV_ORDER:
     ys = [unit_krw[k] * x for x in xs]
     fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", name=S.SERVICES[k]["name"],

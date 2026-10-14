@@ -1,6 +1,6 @@
 # AI 서비스 비용 산출 대시보드
 
-운영 중인 5개 AI 서비스가 **기준 산출물 1건**을 만들 때 어떤 모델을 몇 번 호출하는지(코드 기반 고정값)를 바탕으로, **환율·수량·단가·토큰** 변동에 따른 단가·총비용을 시뮬레이션하는 Streamlit 앱.
+운영 중인 6개 AI 서비스가 **기준 산출물 1건**을 만들 때 어떤 모델을 몇 번 호출하는지(코드 기반 고정값)를 바탕으로, **환율·수량·단가·토큰** 변동에 따른 단가·총비용을 시뮬레이션하는 Streamlit 앱.
 
 > 이 앱은 **"산출 엔진"**이다. 단가·토큰·환율은 시시각각 변하므로 모두 UI 입력값이며, 코드에 하드코딩하지 않는다. 단가의 진위는 보증하지 않는다.
 
@@ -23,7 +23,7 @@ python services.py
 | 파일 | 역할 |
 |------|------|
 | `app.py` | Streamlit 앱(단일 파일). 영역A 사이드바 / 영역B 서비스별 / 영역C 통합 비교+차트 |
-| `services.py` | 5개 서비스 호출 구조(**데이터 딕셔너리**) + 비용 계산 함수. 데이터만 고치면 단계/횟수/토큰 변경 |
+| `services.py` | 6개 서비스 호출 구조(**데이터 딕셔너리**) + 비용 계산 함수. 데이터만 고치면 단계/횟수/토큰 변경 |
 | `requirements.txt` | `streamlit`, `pandas`, `plotly` |
 | `WORK_INSTRUCTION.md` | 원본 작업지시서 |
 
@@ -36,6 +36,7 @@ python services.py
 | 검색 키워드 추천상품 (`search-agent`) | 추천 1번 |
 | 모델 워킹/턴 영상 (`vod-agent`) | 동영상 1개 |
 | 상품 속성·카테고리 추출 (`batchPro-main`) | 상품 1건 |
+| 상품 사이즈표 추출 (`product_attr_extract`) | 상품 1건 |
 
 ## 과금 방식
 
@@ -54,7 +55,7 @@ python services.py
 사이드바의 **단가 테이블**과 **입력 토큰 추정치**는 조사일(2026-07) 기준 **참고 기본값**이다. 정확한 산출을 위해 각 제공자 공식 가격 페이지에서 최신값을 확인한 뒤 UI에서 직접 수정할 것.
 
 - **🔄 단가 자동 업데이트**: 사이드바 버튼 클릭 시 [LiteLLM 공개 단가 데이터셋](https://github.com/BerriAI/litellm)에서 토큰/이미지/비디오 단가를 일괄 갱신(OpenAI·Gemini·AWS Nova·Veo 11개 모델). luma 폴백·Exa는 미포함 → 수동.
-- **OpenAI** (gpt-4o / gpt-4o-mini): https://openai.com/api/pricing/
+- **OpenAI** (gpt-4o / gpt-4o-mini / gpt-4.1-mini): https://openai.com/api/pricing/
 - **Google Gemini** (gemini-2.5-flash, 이미지, Veo): https://ai.google.dev/pricing
 - **AWS Bedrock** (Nova 2 Lite): https://aws.amazon.com/bedrock/pricing/ — $0.30/$2.50(LiteLLM 데이터셋 확인). 코드는 `service_tier="flex"`·프롬프트 캐시 사용 → 실제 청구는 더 낮을 수 있음(단가표에서 조정).
 - **Exa** (외부 검색): https://exa.ai/pricing
@@ -72,5 +73,5 @@ python services.py
 
 ## 비고
 
-- 차트는 dataviz 가이드라인의 검증 팔레트(라이트/다크)를 사용한다. 5개 서비스는 고정 순서(슬롯 1~5)의 색상을 쓰며, 라이트 모드에서 일부 계열은 대비가 낮아 **정확한 값은 통합 비교표를 기준**으로 확인한다.
+- 차트는 dataviz 가이드라인의 검증 팔레트(라이트/다크)를 사용한다. 6개 서비스는 고정 순서(슬롯 1~6)의 색상을 쓰며, 라이트 모드에서 일부 계열은 대비가 낮아 **정확한 값은 통합 비교표를 기준**으로 확인한다.
 - `services.py`의 데이터를 고치면 단계·횟수·토큰·모델 변경이 UI에 즉시 반영된다(계산 로직과 분리).

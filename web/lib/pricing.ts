@@ -8,6 +8,7 @@ export const LITELLM_URL = "https://raw.githubusercontent.com/BerriAI/litellm/ma
 export const LITELLM_KEY: Record<string, string> = {
   "gpt-4o": "gpt-4o",
   "gpt-4o-mini": "gpt-4o-mini",
+  "gpt-4.1-mini": "gpt-4.1-mini",
   "gemini-2.5-flash": "gemini-2.5-flash",
   "amazon-nova-2-lite": "amazon.nova-2-lite-v1:0",
   "gemini-3.1-flash-image": "gemini-3.1-flash-image",
@@ -25,6 +26,7 @@ export type ModelKind = "token" | "image" | "per_second" | "per_video" | "reques
 export const MODEL_KIND: Record<string, ModelKind> = {
   "gpt-4o": "token",
   "gpt-4o-mini": "token",
+  "gpt-4.1-mini": "token",
   "gemini-2.5-flash": "token",
   "amazon-nova-2-lite": "token",
   "gemini-3.1-flash-image": "image",

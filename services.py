@@ -1,4 +1,4 @@
-"""4개 AI 서비스의 호출 구조(데이터) + 비용 산출 함수.
+"""6개 AI 서비스의 호출 구조(데이터) + 비용 산출 함수.
 
 데이터(딕셔너리)만 고치면 단계/횟수/토큰/모델이 변경된다 — 계산 로직과 분리.
 출처: WORK_INSTRUCTION.md 3절(코드 기반 고정값).
@@ -39,6 +39,7 @@ DEFAULT_PRICES = {
     # USD / 1M tokens
     "gpt-4o":                 {"in": 2.50, "out": 10.00},
     "gpt-4o-mini":            {"in": 0.15, "out": 0.60},
+    "gpt-4.1-mini":           {"in": 0.40, "out": 1.60},
     "gemini-2.5-flash":       {"in": 0.30, "out": 2.50},
     # AWS Bedrock Nova 2 Lite (토큰/1M). 공식값 미확정 → Bifrost 추정치($0.30/$2.50).
     # 코드는 service_tier="flex" 사용 → 실제 청구는 더 낮을 수 있음(단가표에서 조정).
@@ -65,7 +66,7 @@ NOVA_TIER_LABEL = {"standard": "Standard (기본 · On-Demand)", "flex": "Flex (
 
 # 모델 → 공급사 (단계별 내역 표시용)
 MODEL_PROVIDER = {
-    "gpt-4o": "OpenAI", "gpt-4o-mini": "OpenAI",
+    "gpt-4o": "OpenAI", "gpt-4o-mini": "OpenAI", "gpt-4.1-mini": "OpenAI",
     "gemini-2.5-flash": "Google", "gemini-3.1-flash-image": "Google",
     "amazon-nova-2-lite": "AWS", "luma-dream-machine": "Luma",
     "exa-search": "Exa", "exa-contents": "Exa",
@@ -196,6 +197,16 @@ SERVICES = {
             _tok("bp_cat_s", "3차 소분류 추론", "amazon-nova-2-lite", 384, 170, sys_tok=1072),
         ],
     },
+    "size": {
+        "name": "상품 사이즈표 추출", "unit": "상품 1건", "provider": "OpenAI",
+        # 출처: product_attr_extract util/size_table.py. 상세 HTML 표 텍스트 → (실측표 없으면) 상세 이미지 조각(768px, 평균 22장).
+        # 토큰 = 평가 실측 평균(2026-10, 23건). HTML 경로 7건 평균, 이미지 경로 14건 평균(최소 1.1만~최대 5만).
+        # count = 경로 비율(html_pct). 표본 144건 조사에서 HTML 실측표 보유 약 11%.
+        "steps": [
+            _tok("size_html", "HTML 표 텍스트 추출", "gpt-4.1-mini", 2036, 593),
+            _tok("size_img", "상세 이미지 사이즈표 추출", "gpt-4.1-mini", 22573, 932),
+        ],
+    },
 }
 
 # ---- 서비스별 기본 옵션(UI 초기값) ----
@@ -205,6 +216,7 @@ DEFAULT_OPTIONS = {
     "search": {"cache_hit_pct": 0.0, "exa_enabled": True, "exa_calls": 2, "exa_results": 5},
     "vod": {"avg_images": 14, "video_sec": 10.0, "luma_prob": 0.0, "video_model": "lite", "video_res": "720p"},
     "batchpro": {"images": 6, "cache_read_mult": 0.10, "nova_tier": "flex"},  # 실코드는 nova-2 → flex
+    "size": {"html_pct": 11.0},
 }
 
 
@@ -253,6 +265,11 @@ def concrete_steps(svc_key, opts):
             if st["id"] == "bp_img":                      # 이미지 장수만큼 입력 토큰 과금
                 st["count"] = opts["images"]
             out.append(st)
+    elif svc_key == "size":
+        h, i = (dict(st) for st in s["steps"])
+        h["count"] = opts["html_pct"] / 100       # HTML 실측표 보유 비율
+        i["count"] = 1 - opts["html_pct"] / 100   # 나머지는 이미지 경로
+        out += [h, i]
     return out
 
 
@@ -302,6 +319,9 @@ def demo():
     for k in SERVICES:
         usd, krw, bd = cost_unit(k, DEFAULT_OPTIONS[k], DEFAULT_PRICES, fx=fx)
         print(f"{SERVICES[k]['name']:>20} | 1건당 ${usd:.6f} / ₩{krw:,.2f}  ({len(bd)}단계)")
+    # size: HTML 경로가 이미지 경로보다 싸야 하고, 비율 100%면 HTML 단계만 과금
+    html_only = cost_unit("size", {"html_pct": 100.0}, DEFAULT_PRICES)[0]
+    assert 0 < html_only < cost_unit("size", {"html_pct": 0.0}, DEFAULT_PRICES)[0]
 
 
 if __name__ == "__main__":

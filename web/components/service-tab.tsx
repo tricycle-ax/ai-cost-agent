@@ -16,6 +16,7 @@ import {
   type SearchOptions,
   type VodOptions,
   type BatchproOptions,
+  type SizeOptions,
 } from "@/lib/services";
 import type { ServiceCostResult } from "@/lib/compute-service-cost";
 
@@ -88,6 +89,16 @@ export function ServiceTab({ svcKey, opts, onOptsChange, qty, onQtyChange, fx, c
         {svcKey === "search" && <SearchOptionsForm opts={opts as unknown as SearchOptions} onChange={onOptsChange} />}
         {svcKey === "vod" && <VodOptionsForm opts={opts as unknown as VodOptions} onChange={onOptsChange} />}
         {svcKey === "batchpro" && <BatchproOptionsForm opts={opts as unknown as BatchproOptions} onChange={onOptsChange} />}
+        {svcKey === "size" && (
+          <LabeledSlider
+            label="HTML 실측표 보유 비율 (%)"
+            value={(opts as unknown as SizeOptions).html_pct}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(v) => onOptsChange({ html_pct: v })}
+          />
+        )}
       </div>
 
       <div className="space-y-3">

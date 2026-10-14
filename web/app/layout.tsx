@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AI 비용 산출 대시보드",
-  description: "5개 AI 서비스의 건당/총비용 시뮬레이터",
+  description: "6개 AI 서비스의 건당/총비용 시뮬레이터",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
