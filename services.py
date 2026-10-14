@@ -40,6 +40,7 @@ DEFAULT_PRICES = {
     "gpt-4o":                 {"in": 2.50, "out": 10.00},
     "gpt-4o-mini":            {"in": 0.15, "out": 0.60},
     "gpt-4.1-mini":           {"in": 0.40, "out": 1.60},
+    "gpt-6-luna":             {"in": 0.10, "out": 0.50},   # OpenAI 공식·LiteLLM 데이터셋 (2026-10 확인)
     "gemini-2.5-flash":       {"in": 0.30, "out": 2.50},
     # AWS Bedrock Nova 2 Lite (토큰/1M). 공식값 미확정 → Bifrost 추정치($0.30/$2.50).
     # 코드는 service_tier="flex" 사용 → 실제 청구는 더 낮을 수 있음(단가표에서 조정).
@@ -66,7 +67,7 @@ NOVA_TIER_LABEL = {"standard": "Standard (기본 · On-Demand)", "flex": "Flex (
 
 # 모델 → 공급사 (단계별 내역 표시용)
 MODEL_PROVIDER = {
-    "gpt-4o": "OpenAI", "gpt-4o-mini": "OpenAI", "gpt-4.1-mini": "OpenAI",
+    "gpt-4o": "OpenAI", "gpt-4o-mini": "OpenAI", "gpt-4.1-mini": "OpenAI", "gpt-6-luna": "OpenAI",
     "gemini-2.5-flash": "Google", "gemini-3.1-flash-image": "Google",
     "amazon-nova-2-lite": "AWS", "luma-dream-machine": "Luma",
     "exa-search": "Exa", "exa-contents": "Exa",
@@ -198,13 +199,14 @@ SERVICES = {
         ],
     },
     "size": {
-        "name": "상품 사이즈표 추출", "unit": "상품 1건", "provider": "OpenAI",
+        "name": "상품 사이즈표 추출", "unit": "상품 1건", "provider": "OpenAI (LiteLLM 게이트웨이)",
         # 출처: product_attr_extract util/size_table.py. 상세 HTML 표 텍스트 → (실측표 없으면) 상세 이미지 조각(768px, 평균 22장).
-        # 토큰 = 평가 실측 평균(2026-10, 23건). HTML 경로 7건 평균, 이미지 경로 14건 평균(최소 1.1만~최대 5만).
+        # 모델 = gpt-6-luna (LiteLLM 게이트웨이 경유, company 팀 키). 토큰 = 평가 실측 평균(2026-10, 9건):
+        # HTML 경로 3건, 이미지 경로 6건(입력 0.9만~2.9만). 출력에 추론 토큰 포함. 이전 gpt-4.1-mini 대비 약 1/4 비용.
         # count = 경로 비율(html_pct). 표본 144건 조사에서 HTML 실측표 보유 약 11%.
         "steps": [
-            _tok("size_html", "HTML 표 텍스트 추출", "gpt-4.1-mini", 2036, 593),
-            _tok("size_img", "상세 이미지 사이즈표 추출", "gpt-4.1-mini", 22573, 932),
+            _tok("size_html", "HTML 표 텍스트 추출", "gpt-6-luna", 2523, 780),
+            _tok("size_img", "상세 이미지 사이즈표 추출", "gpt-6-luna", 18670, 1258),
         ],
     },
 }

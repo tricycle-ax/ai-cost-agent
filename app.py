@@ -31,7 +31,7 @@ LITELLM_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_pric
 # 우리 모델 → LiteLLM JSON 키. 미매핑(luma, exa)은 수동 유지.
 LITELLM_KEY = {
     "gpt-4o": "gpt-4o", "gpt-4o-mini": "gpt-4o-mini", "gemini-2.5-flash": "gemini-2.5-flash",
-    "gpt-4.1-mini": "gpt-4.1-mini",
+    "gpt-4.1-mini": "gpt-4.1-mini", "gpt-6-luna": "gpt-6-luna",
     "amazon-nova-2-lite": "amazon.nova-2-lite-v1:0",
     "gemini-3.1-flash-image": "gemini-3.1-flash-image",
     "veo-lite-720p": "gemini/veo-3.1-lite-generate-preview",
@@ -101,7 +101,7 @@ ink = INK["dark" if DARK else "light"]
 # ---- 모델별 과금 종류 + 토큰 단계(데이터에서 추출, UI 편집용) ----
 MODEL_KIND = {
     "gpt-4o": "token", "gpt-4o-mini": "token", "gemini-2.5-flash": "token",
-    "gpt-4.1-mini": "token", "amazon-nova-2-lite": "token",
+    "gpt-4.1-mini": "token", "gpt-6-luna": "token", "amazon-nova-2-lite": "token",
     "gemini-3.1-flash-image": "image",
     **{k: "per_second" for k in S.VIDEO_PRICES},  # veo {lite/pro}-{720p/1080p} 매트릭스
     "luma-dream-machine": "per_video",
